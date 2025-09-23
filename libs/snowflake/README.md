@@ -36,13 +36,13 @@ export LANGCHAIN_PROJECT=snowflake-cortex
 
 ## Documentation
 
-- [Getting Started](docs/getting_started.ipynb)
-- [Snowflake Workflows](docs/snowflake_workflows.ipynb)
-- [Advanced Patterns](docs/advanced_patterns.ipynb)
+- [Getting Started](https://github.com/langchain-ai/langchain-snowflake/blob/main/libs/snowflake/docs/getting_started.ipynb)
+- [Snowflake Workflows](https://github.com/langchain-ai/langchain-snowflake/blob/main/libs/snowflake/docs/snowflake_workflows.ipynb)
+- [Advanced Patterns](https://github.com/langchain-ai/langchain-snowflake/blob/main/libs/snowflake/docs/advanced_patterns.ipynb)
 
 ## Contributing
 
-See [Development.md](Development.md) for setup and guidelines.
+See [Development.md](https://github.com/langchain-ai/langchain-snowflake/blob/main/libs/snowflake/DEVELOPMENT.md) for setup and guidelines.
 
 ## License
 
