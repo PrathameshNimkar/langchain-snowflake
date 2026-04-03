@@ -1,7 +1,7 @@
 """Tests for tool message grouping functionality."""
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from langchain_snowflake.chat_models import ChatSnowflake
 
@@ -225,3 +225,82 @@ class TestToolMessageGrouping:
         assert len(assistant_message["content_list"]) == 1  # tool_use only
         assert assistant_message["content_list"][0]["type"] == "tool_use"
         assert assistant_message["content_list"][0]["tool_use"]["name"] == "get_weather"
+
+
+class TestCacheControlMessageProcessing:
+    """Tests for fix #47: cache_control on list content blocks is preserved."""
+
+    @pytest.fixture
+    def chat_snowflake(self):
+        return ChatSnowflake(model="claude-3-5-sonnet", session=None)
+
+    def test_human_message_string_content_unchanged(self, chat_snowflake):
+        msgs = [HumanMessage(content="plain text")]
+        payload = chat_snowflake._build_rest_api_payload(msgs)
+        user_msg = payload["messages"][0]
+        assert user_msg["role"] == "user"
+        assert user_msg["content"] == "plain text"
+        assert "content_list" not in user_msg
+
+    def test_human_message_list_content_uses_content_list(self, chat_snowflake):
+        msgs = [
+            HumanMessage(content=[{"type": "text", "text": "Hello", "cache_control": {"type": "ephemeral"}}])
+        ]
+        payload = chat_snowflake._build_rest_api_payload(msgs)
+        user_msg = payload["messages"][0]
+        assert user_msg["role"] == "user"
+        assert "content_list" in user_msg
+        assert "content" not in user_msg
+        block = user_msg["content_list"][0]
+        assert block["type"] == "text"
+        assert block["text"] == "Hello"
+        assert block["cache_control"] == {"type": "ephemeral"}
+
+    def test_human_message_mixed_list_content(self, chat_snowflake):
+        msgs = [
+            HumanMessage(
+                content=[
+                    "plain string block",
+                    {"type": "text", "text": "cached block", "cache_control": {"type": "ephemeral"}},
+                ]
+            )
+        ]
+        payload = chat_snowflake._build_rest_api_payload(msgs)
+        user_msg = payload["messages"][0]
+        assert "content_list" in user_msg
+        assert user_msg["content_list"][0] == {"type": "text", "text": "plain string block"}
+        assert user_msg["content_list"][1]["cache_control"] == {"type": "ephemeral"}
+
+    def test_system_message_string_content_unchanged(self, chat_snowflake):
+        msgs = [SystemMessage(content="You are helpful."), HumanMessage(content="Hi")]
+        payload = chat_snowflake._build_rest_api_payload(msgs)
+        sys_msg = next(
+            m for m in payload["messages"]
+            if m["role"] == "system" and m.get("content") == "You are helpful."
+        )
+        assert sys_msg["content"] == "You are helpful."
+        assert "content_list" not in sys_msg
+
+    def test_system_message_list_content_uses_content_list(self, chat_snowflake):
+        msgs = [
+            SystemMessage(
+                content=[{"type": "text", "text": "You are helpful.", "cache_control": {"type": "ephemeral"}}]
+            ),
+            HumanMessage(content="Hi"),
+        ]
+        payload = chat_snowflake._build_rest_api_payload(msgs)
+        sys_msg = next(m for m in payload["messages"] if m["role"] == "system" and "content_list" in m)
+        assert "content_list" in sys_msg
+        assert "content" not in sys_msg
+        assert sys_msg["content_list"][0]["cache_control"] == {"type": "ephemeral"}
+
+    def test_cache_control_block_is_passed_through_verbatim(self, chat_snowflake):
+        block = {
+            "type": "text",
+            "text": "Context document",
+            "cache_control": {"type": "ephemeral"},
+        }
+        msgs = [HumanMessage(content=[block])]
+        payload = chat_snowflake._build_rest_api_payload(msgs)
+        result_block = payload["messages"][0]["content_list"][0]
+        assert result_block == block

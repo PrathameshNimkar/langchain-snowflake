@@ -237,6 +237,14 @@ The goal is to provide the most helpful, accurate, and relevant information to t
             Dictionary representing the message in API format
         """
         if isinstance(message, HumanMessage):
+            if isinstance(message.content, list):
+                content_list: List[Dict[str, Any]] = []
+                for block in message.content:
+                    if isinstance(block, str):
+                        content_list.append({"type": "text", "text": block})
+                    elif isinstance(block, dict):
+                        content_list.append(block)
+                return {"role": "user", "content_list": content_list}
             return {"role": "user", "content": message.content}
 
         elif isinstance(message, AIMessage):
@@ -287,6 +295,14 @@ The goal is to provide the most helpful, accurate, and relevant information to t
                 return {"role": "assistant", "content": message.content or ""}
 
         elif isinstance(message, SystemMessage):
+            if isinstance(message.content, list):
+                sys_content_list: List[Dict[str, Any]] = []
+                for block in message.content:
+                    if isinstance(block, str):
+                        sys_content_list.append({"type": "text", "text": block})
+                    elif isinstance(block, dict):
+                        sys_content_list.append(block)
+                return {"role": "system", "content_list": sys_content_list}
             return {"role": "system", "content": message.content}
 
         else:
