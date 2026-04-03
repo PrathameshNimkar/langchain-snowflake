@@ -43,9 +43,7 @@ class TestSyncStreamingToolCalls:
         ), patch(
             "langchain_snowflake.chat_models.streaming.RestApiRequestBuilder.cortex_complete_request",
             return_value=MagicMock(),
-        ), patch.object(
-            llm, "_get_session", return_value=MockSession()
-        ), patch.object(
+        ), patch.object(llm, "_get_session", return_value=MockSession()), patch.object(
             llm, "_build_rest_api_payload", return_value={"model": "claude-3-5-sonnet", "messages": []}
         ):
             return list(llm._stream_via_rest_api(messages))
@@ -139,9 +137,7 @@ class TestAsyncStreamingToolCalls:
         ), patch(
             "langchain_snowflake.chat_models.streaming.RestApiRequestBuilder.cortex_complete_request",
             return_value=MagicMock(),
-        ), patch.object(
-            llm, "_get_session", return_value=MockSession()
-        ), patch.object(
+        ), patch.object(llm, "_get_session", return_value=MockSession()), patch.object(
             llm, "_build_rest_api_payload", return_value={"model": "claude-3-5-sonnet", "messages": []}
         ):
             chunks = [c async for c in llm._astream_via_rest_api(messages)]
@@ -166,9 +162,7 @@ class TestAsyncStreamingToolCalls:
         ), patch(
             "langchain_snowflake.chat_models.streaming.RestApiRequestBuilder.cortex_complete_request",
             return_value=MagicMock(),
-        ), patch.object(
-            llm, "_get_session", return_value=MockSession()
-        ), patch.object(
+        ), patch.object(llm, "_get_session", return_value=MockSession()), patch.object(
             llm, "_build_rest_api_payload", return_value={"model": "claude-3-5-sonnet", "messages": []}
         ):
             chunks = [c async for c in llm._astream_via_rest_api(messages)]
