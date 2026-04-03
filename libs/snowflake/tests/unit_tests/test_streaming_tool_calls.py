@@ -4,7 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from langchain_core.messages import AIMessageChunk, ToolCallChunk
+from langchain_core.messages import AIMessageChunk
 
 from langchain_snowflake.chat_models import ChatSnowflake
 
@@ -68,14 +68,14 @@ class TestSyncStreamingToolCalls:
         first_msg = chunks[0].message
         assert isinstance(first_msg, AIMessageChunk)
         assert len(first_msg.tool_call_chunks) == 1
-        tc: ToolCallChunk = first_msg.tool_call_chunks[0]
+        tc = first_msg.tool_call_chunks[0]
         assert tc["id"] == "toolu_01"
         assert tc["name"] == "get_weather"
         assert tc["index"] == 0
 
         second_msg = chunks[1].message
         assert len(second_msg.tool_call_chunks) == 1
-        tc2: ToolCallChunk = second_msg.tool_call_chunks[0]
+        tc2 = second_msg.tool_call_chunks[0]
         assert tc2["args"] == '{"city": "NYC"}'
         assert tc2["index"] == 0
 
