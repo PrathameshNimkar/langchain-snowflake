@@ -14,7 +14,7 @@ langchain/
 # Security files (NEVER commit these)
 env_setup.txt
 rsa_key.p8
-# Local test/scratch scripts — may contain hardcoded credentials
+# Local test/scratch scripts
 _full_test_script.txt
 _full_test_script*.txt
 # AI agent and IDE rule files — local dev tooling only, not for the repo
@@ -132,7 +132,7 @@ site/
 # Local working folders — not for the repo
 docs/issues/
 docs/poc-cust/
-# Demo source directories contain real .env files with credentials — never commit
+# Demo source directories
 docs/build-multi-agentic-demo/
 
 # Benchmarks and performance data
