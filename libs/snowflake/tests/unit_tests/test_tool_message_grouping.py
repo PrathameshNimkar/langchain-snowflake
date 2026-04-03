@@ -304,3 +304,112 @@ class TestCacheControlMessageProcessing:
         payload = chat_snowflake._build_rest_api_payload(msgs)
         result_block = payload["messages"][0]["content_list"][0]
         assert result_block == block
+
+
+class TestCacheControlAdditionalKwargs:
+    """Tests for fix #47 Attempt 2: cache_control via additional_kwargs."""
+
+    @pytest.fixture
+    def chat_snowflake(self):
+        return ChatSnowflake(model="claude-3-5-sonnet", session=None)
+
+    def test_human_message_additional_kwargs_cache_control(self, chat_snowflake):
+        msgs = [
+            HumanMessage(
+                content="A very long prompt",
+                additional_kwargs={"cache_control": {"type": "ephemeral"}},
+            )
+        ]
+        payload = chat_snowflake._build_rest_api_payload(msgs)
+        user_msg = payload["messages"][0]
+        assert "content_list" in user_msg
+        assert "content" not in user_msg
+        assert user_msg["content_list"] == [
+            {"type": "text", "text": "A very long prompt", "cache_control": {"type": "ephemeral"}}
+        ]
+
+    def test_system_message_additional_kwargs_cache_control(self, chat_snowflake):
+        msgs = [
+            SystemMessage(
+                content="You are a helpful assistant.",
+                additional_kwargs={"cache_control": {"type": "ephemeral"}},
+            ),
+            HumanMessage(content="Hi"),
+        ]
+        payload = chat_snowflake._build_rest_api_payload(msgs)
+        sys_msg = next(m for m in payload["messages"] if m["role"] == "system" and "content_list" in m)
+        assert sys_msg["content_list"] == [
+            {"type": "text", "text": "You are a helpful assistant.", "cache_control": {"type": "ephemeral"}}
+        ]
+
+    def test_no_additional_kwargs_leaves_content_unchanged(self, chat_snowflake):
+        msgs = [HumanMessage(content="Hello")]
+        payload = chat_snowflake._build_rest_api_payload(msgs)
+        user_msg = payload["messages"][0]
+        assert user_msg["content"] == "Hello"
+        assert "content_list" not in user_msg
+
+    def test_list_content_takes_precedence_over_additional_kwargs(self, chat_snowflake):
+        msgs = [
+            HumanMessage(
+                content=[{"type": "text", "text": "block"}],
+                additional_kwargs={"cache_control": {"type": "ephemeral"}},
+            )
+        ]
+        payload = chat_snowflake._build_rest_api_payload(msgs)
+        user_msg = payload["messages"][0]
+        assert "content_list" in user_msg
+        assert user_msg["content_list"] == [{"type": "text", "text": "block"}]
+
+
+class TestBindToolsCacheControl:
+    """Tests for fix #47 Attempt 3: cache_control on tool definitions via bind_tools()."""
+
+    @pytest.fixture
+    def chat_snowflake(self):
+        return ChatSnowflake(model="claude-3-5-sonnet", session=None)
+
+    def _dummy_tool(self):
+        from langchain_core.tools import tool
+
+        @tool
+        def get_date() -> str:
+            """Get the current date."""
+            return "2026-04-03"
+
+        return get_date
+
+    def test_bind_tools_without_cache_control(self, chat_snowflake):
+        tool = self._dummy_tool()
+        llm = chat_snowflake.bind_tools([tool])
+        assert "cache_control" not in llm._bound_tools[-1]["tool_spec"]
+
+    def test_bind_tools_cache_control_applied_to_last_tool(self, chat_snowflake):
+        from langchain_core.tools import tool
+
+        @tool
+        def tool_a() -> str:
+            """Tool A."""
+            return "a"
+
+        @tool
+        def tool_b() -> str:
+            """Tool B."""
+            return "b"
+
+        llm = chat_snowflake.bind_tools([tool_a, tool_b], cache_control={"type": "ephemeral"})
+        assert "cache_control" not in llm._bound_tools[0]["tool_spec"]
+        assert llm._bound_tools[-1]["tool_spec"]["cache_control"] == {"type": "ephemeral"}
+
+    def test_bind_tools_cache_control_single_tool(self, chat_snowflake):
+        tool = self._dummy_tool()
+        llm = chat_snowflake.bind_tools([tool], cache_control={"type": "ephemeral"})
+        assert llm._bound_tools[0]["tool_spec"]["cache_control"] == {"type": "ephemeral"}
+
+    def test_bind_tools_cache_control_present_in_payload(self, chat_snowflake):
+        tool = self._dummy_tool()
+        llm = chat_snowflake.bind_tools([tool], cache_control={"type": "ephemeral"})
+        msgs = [HumanMessage(content="What day is it?")]
+        payload = llm._build_rest_api_payload(msgs)
+        last_tool_spec = payload["tools"][-1]["tool_spec"]
+        assert last_tool_spec["cache_control"] == {"type": "ephemeral"}

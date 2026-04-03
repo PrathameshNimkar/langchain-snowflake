@@ -23,12 +23,18 @@ class SnowflakeTools:
     def bind_tools(
         self,
         tools: Sequence[Union[BaseTool, Callable, dict]],
+        *,
+        cache_control: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, BaseMessage]:
         """Bind tools to the chat model using Snowflake Cortex Complete native tool calling.
 
         Args:
             tools: A list of tools to bind to the model
+            cache_control: Optional cache_control dict (e.g. ``{"type": "ephemeral"}``)
+                applied to the last tool spec. This follows the Anthropic prompt-caching
+                convention where placing ``cache_control`` on the last tool instructs
+                the API to cache the entire tools block. Only effective on Claude models.
             **kwargs: Additional arguments including tool_choice
 
         Returns:
@@ -57,6 +63,9 @@ class SnowflakeTools:
             }
 
             snowflake_tools.append({"tool_spec": tool_spec})
+
+        if cache_control and snowflake_tools:
+            snowflake_tools[-1]["tool_spec"]["cache_control"] = cache_control
 
         # Handle tool_choice (processed for LangChain compatibility but not sent to Snowflake)
         tool_choice = kwargs.pop("tool_choice", "auto")
@@ -245,6 +254,12 @@ The goal is to provide the most helpful, accurate, and relevant information to t
                     elif isinstance(block, dict):
                         content_list.append(block)
                 return {"role": "user", "content_list": content_list}
+            cache_control = (message.additional_kwargs or {}).get("cache_control")
+            if cache_control:
+                return {
+                    "role": "user",
+                    "content_list": [{"type": "text", "text": str(message.content), "cache_control": cache_control}],
+                }
             return {"role": "user", "content": message.content}
 
         elif isinstance(message, AIMessage):
@@ -303,6 +318,12 @@ The goal is to provide the most helpful, accurate, and relevant information to t
                     elif isinstance(block, dict):
                         sys_content_list.append(block)
                 return {"role": "system", "content_list": sys_content_list}
+            cache_control = (message.additional_kwargs or {}).get("cache_control")
+            if cache_control:
+                return {
+                    "role": "system",
+                    "content_list": [{"type": "text", "text": str(message.content), "cache_control": cache_control}],
+                }
             return {"role": "system", "content": message.content}
 
         else:
